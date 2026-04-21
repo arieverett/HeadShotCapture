@@ -38,6 +38,7 @@ class CaptureHandler: NSObject {
         }
         
         configureSession()
+         
         devices = discoverCaptureDevices()
     }
     
