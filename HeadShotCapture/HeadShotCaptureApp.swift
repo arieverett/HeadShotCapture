@@ -9,9 +9,15 @@ import SwiftUI
 
 @main
 struct HeadShotCaptureApp: App {
+    @State private var capture = CaptureHandler()
+        
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(capture)
+                .task {
+                    await capture.setup()
+                }
         }
     }
 }
