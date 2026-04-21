@@ -10,12 +10,16 @@ import SwiftUI
 struct ContentView: View {
     @State private var photo: UIImage?
     @State private var textRecognizer = TextRecognizer()
-    @State private var headshotAnalyzer = HeadshotAnalyzer()
+    @State private var analysis = FaceAnalysis(
+        faceDetected: false,
+        isCentered: false,
+        landmarksDetected: []
+    )
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
                     if let photo {
                         Image(uiImage: photo)
                             .resizable()
@@ -27,119 +31,101 @@ struct ContentView: View {
                                     .stroke(.white, lineWidth: 3)
                             )
                             .shadow(radius: 10)
-                    } else {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(.thinMaterial)
-                            .frame(width: 400, height: 400)
-                            .overlay {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "person.crop.square")
-                                        .font(.largeTitle)
-                                    Text("Capture a headshot to begin")
-                                }
-                                .foregroundStyle(.secondary)
-                            }
                     }
 
-                    if headshotAnalyzer.analysis.faceCount > 0 {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Headshot Analysis")
-                                .font(.title2)
-                                .bold()
-                            Text("Faces detected: \(headshotAnalyzer.analysis.faceCount)")
-                            Text("Centered: \(headshotAnalyzer.analysis.isCentered ? "Yes" : "No")")
-                            Text(headshotAnalyzer.analysis.featureSummary)
-                            Text(headshotAnalyzer.analysis.recommendation)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                    }
+                    transcriptSection
 
-                    if !textRecognizer.allTranscripts.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Recognized Text")
-                                .font(.title2)
-                                .bold()
+                    summarySection
 
-                            LazyVStack(alignment: .leading) {
-                                ForEach(textRecognizer.allTranscripts) { line in
-                                    Text(line.text)
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                    }
-
-                    if !textRecognizer.summary.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Summary")
-                                .font(.title2)
-                                .bold()
-                            Text(textRecognizer.summary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                    }
+                    analysisSection
                 }
-                .padding(.vertical)
+                .padding(.horizontal, 8)
             }
-            .navigationTitle("HeadShotCapture")
             .toolbar {
                 ToolbarItemGroup(placement: .bottomBar) {
-                    Button(action: {
+                    Button("Recognize") {
                         guard let photo else { return }
                         Task {
                             await textRecognizer.detectText(image: photo)
                         }
-                    }, label: {
-                        Label("Recognize", systemImage: "text.viewfinder")
-                    })
+                    }
 
                     Spacer()
 
-                    NavigationLink(destination: {
+                    NavigationLink {
                         CaptureView(photo: $photo)
-                    }, label: {
+                    } label: {
                         Label("Camera", systemImage: "camera")
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
-                    })
+                    }
                     .buttonStyle(.borderedProminent)
 
                     Spacer()
 
-                    Menu(content: {
-                        Button(action: {
+                    Button("Analyze") {
+                        guard let photo else { return }
+                        Task {
+                            analysis = await HeadshotAnalyzer().analyze(image: photo)
+                        }
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        Button("Save to Photo Library", systemImage: "photo") {
                             guard let photo else { return }
                             let imageSaver = ImageSaver()
                             imageSaver.writeToPhotoAlbum(image: photo)
-                        }, label: {
-                            Label("Save to Photo Library", systemImage: "photo")
-                        })
+                        }
 
-                        Button(action: {
+                        Button("Save Jpeg to Documents", systemImage: "photo") {
                             guard let photo else { return }
                             exportJpegToDocuments(
                                 image: photo,
                                 filename: "photo.jpg",
                                 quality: 0.9
                             )
-                        }, label: {
-                            Label("Save Jpeg to Documents", systemImage: "photo")
-                        })
-                    }, label: {
+                        }
+                    } label: {
                         Label("Save", systemImage: "square.and.arrow.down")
-                    })
+                    }
                 }
             }
-            .onChange(of: photo) { _, newPhoto in
-                Task {
-                    await headshotAnalyzer.analyze(image: newPhoto)
-                    textRecognizer.allTranscripts = []
-                    textRecognizer.summary = ""
+        }
+    }
+
+    private var transcriptSection: some View {
+        LazyVStack(alignment: .leading) {
+            ForEach(textRecognizer.allTranscripts) { line in
+                Text(line.text)
+            }
+        }
+    }
+
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Summary")
+                .font(.title)
+
+            Text(textRecognizer.summary)
+        }
+    }
+
+    private var analysisSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Headshot Analysis")
+                .font(.title2)
+
+            if analysis.faceDetected {
+                Text("Face detected")
+                Text(analysis.isCentered ? "Face is centered" : "Face not centered")
+
+                ForEach(analysis.landmarksDetected, id: \.self) { item in
+                    Text(item)
                 }
+            } else {
+                Text("No face detected")
             }
         }
     }
