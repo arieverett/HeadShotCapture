@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var photo: UIImage?
     @State private var textRecognizer = TextRecognizer()
-
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -28,17 +28,17 @@ struct ContentView: View {
                             .shadow(radius: 10)
                     }
                 }
-
+                
                 LazyVStack(alignment: .leading) {
                     ForEach(textRecognizer.allTranscripts) { line in
                         Text(line.text)
                     }
                 }
                 .padding(.horizontal, 8)
-
+                
                 Text("Summary")
                     .font(.title)
-
+                
                 Text(textRecognizer.summary)
             }
             .toolbar {
@@ -51,9 +51,9 @@ struct ContentView: View {
                     }, label: {
                         Label("Recognize", systemImage: "text.viewfinder")
                     })
-
+                    
                     Spacer()
-
+                    
                     NavigationLink(destination: {
                         CaptureView(photo: $photo)
                     }, label: {
@@ -62,9 +62,9 @@ struct ContentView: View {
                             .padding(.horizontal, 12)
                     })
                     .buttonStyle(.borderedProminent)
-
+                    
                     Spacer()
-
+                    
                     Menu(content: {
                         Button(action: {
                             guard let photo else { return }
@@ -73,7 +73,7 @@ struct ContentView: View {
                         }, label: {
                             Label("Save to Photo Library", systemImage: "photo")
                         })
-
+                        
                         Button(action: {
                             guard let photo else { return }
                             exportJpegToDocuments(

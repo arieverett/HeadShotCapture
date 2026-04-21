@@ -11,11 +11,11 @@ import AVFoundation
 struct CaptureView: View {
     @Environment(CaptureHandler.self) private var capture
     @Environment(\.dismiss) private var dismiss
-
+    
     private let faceCropper = FaceCropper()
-
+    
     @Binding var photo: UIImage?
-
+    
     var body: some View {
         ZStack {
             CameraPreviewView(session: capture.session)
@@ -30,7 +30,7 @@ struct CaptureView: View {
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
                 Spacer()
-
+                
                 Button(action: {
                     Task {
                         await capturePhoto()
@@ -39,9 +39,9 @@ struct CaptureView: View {
                     Image(systemName: "camera.circle")
                         .font(.largeTitle)
                 })
-
+                
                 Spacer()
-
+                
                 Menu(content: {
                     ForEach(capture.devices, id: \.uniqueID) { device in
                         Button(action: {
@@ -60,18 +60,18 @@ struct CaptureView: View {
             }
         }
     }
-
+    
     private func capturePhoto() async {
         guard let capturedPhoto = await capture.capturePhoto() else {
             return
         }
-
+        
         if let croppedFace = await faceCropper.detectAndCropFace(in: capturedPhoto) {
             self.photo = croppedFace
         } else {
             self.photo = capturedPhoto
         }
-
+        
         dismiss()
     }
 }
