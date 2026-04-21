@@ -13,66 +13,69 @@ import Foundation
 @Observable
 class TextRecognizer {
     var allTranscripts: [RecipeLine] = []
-    
-    var summary: LocalizedStringKey = ""
-    
+    var summary = ""
+
     func detectText(image: UIImage) async {
         guard let cgImage = image.cgImage else { return }
-        
+
         let imageRequestHandler = ImageRequestHandler(cgImage)
         let recognizeRequest = RecognizeTextRequest()
-        
+
         do {
-            let response: RecognizeTextRequest.Result = try await
-            imageRequestHandler.perform(recognizeRequest)
-            
+            allTranscripts = []
+            summary = ""
+
+            let response: RecognizeTextRequest.Result = try await imageRequestHandler.perform(recognizeRequest)
+
             for observation in response {
-                allTranscripts.append(RecipeLine(id: <#T##UUID#>, text: observation.transcript))
+                allTranscripts.append(RecipeLine(id: UUID(), text: observation.transcript))
                 print("---------------------------")
                 print("transcript: \(observation.transcript)")
-                print("\(observation.isTitle ? "TITLE" : "not title")")
-                
+                print("\(observation.isTitle ? \"TITLE\" : \"not title\")")
+
                 if let wrapFlag = observation.shouldWrapToNextLine {
-                    print("\(wrapFlag ? "SHOULD WRAP" : "no wrap")")
+                    print("\(wrapFlag ? \"SHOULD WRAP\" : \"no wrap\")")
                 }
-                
+
                 let candidates = observation.topCandidates(3)
-                if let firstCandidate = candidates.first {
-                    if firstCandidate.confidence < 1.0 {
-                        for candidate in candidates {
-                            print(" string: \(candidate.string) : confidence: \(candidate.confidence)")
-                        }
+                if let firstCandidate = candidates.first, firstCandidate.confidence < 1.0 {
+                    for candidate in candidates {
+                        print(" string: \(candidate.string) : confidence: \(candidate.confidence)")
                     }
                 }
             }
-            
-            //let allText = allTranscripts.joined(separator: "\n")
-            let allText = allTranscripts.map({ $0.text + "\n"}).joined()
+
+            let allText = allTranscripts.map { $0.text }.joined(separator: "\n")
             await summarizeRecipe(text: allText)
-            
         } catch {
             print("Error recognizing text: \(error)")
         }
     }
-    
+
     func summarizeRecipe(text: String) async {
+        guard !text.isEmpty else {
+            summary = "No text detected."
+            return
+        }
+
         let model = SystemLanguageModel.default
-        guard model.isAvailable else { return }
-        
+        guard model.isAvailable else {
+            summary = "Summary unavailable on this device."
+            return
+        }
+
         let instructions = "What is this recipe? Please describe the primary ingredients found in this recipe. How long will it take to prepare this recipe?"
-        
         let session = LanguageModelSession(instructions: instructions)
-        
+
         do {
             let response: LanguageModelSession.Response<String> = try await session.respond(to: text)
-            
             print("***********************")
             print("Summary result:")
             print(response.content)
-            summary = LocalizedStringKey(response.content)
-            
+            summary = response.content
         } catch {
             print(error)
+            summary = "Unable to summarize recipe."
         }
     }
 }
